@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/OneOfOne/xxhash"
-	"github.com/golang/sys/unix"
 	"github.com/karrick/gobsp"
 	"github.com/karrick/godirwalk"
 	"github.com/karrick/golf"
 	"github.com/pkg/errors"
+	"golang.org/x/sys/unix"
 )
 
 var dirReadScratch = make([]byte, 64*1024)
