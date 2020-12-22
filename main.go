@@ -14,7 +14,6 @@ import (
 	"github.com/karrick/godirwalk"
 	"github.com/karrick/golf"
 	"github.com/pkg/errors"
-	"golang.org/x/sys/unix"
 )
 
 var dirReadScratch = make([]byte, 64*1024)
@@ -346,6 +345,12 @@ func encodeFile(composer *gobsp.Composer, targetParent, targetBase string) error
 func encodeSymlink(composer *gobsp.Composer, targetParent, targetBase string) error {
 	targetFull := filepath.Join(targetParent, targetBase)
 	debug("%s encode symlink\n", targetFull)
+	debug("%s targetParent: %s\n", targetBase, targetParent)
+
+	li, err := os.Lstat(string(targetFull))
+	if err != nil {
+		return errors.WithStack(err)
+	}
 
 	linkname, err := os.Readlink(targetFull)
 	if err != nil {
@@ -359,9 +364,21 @@ func encodeSymlink(composer *gobsp.Composer, targetParent, targetBase string) er
 		return errors.Wrap(err, "cannot encode name")
 	}
 
-	// linkname
+	debug("%s referent: %v\n", targetBase, linkname)
 	if err = gobsp.String(linkname).MarshalBinaryTo(messageScratch); err != nil {
 		return errors.Wrap(err, "cannot encode referent")
+	}
+
+	mtime := li.ModTime().UTC().Unix()
+	debug("%s mtime: %v\n", targetBase, mtime)
+	if err = gobsp.Int64(mtime).MarshalBinaryTo(messageScratch); err != nil {
+		return errors.Wrap(err, "cannot encode modification time")
+	}
+
+	mode := li.Mode()
+	debug("%s mode: %v\n", targetBase, mode)
+	if err = gobsp.Uint32(uint32(li.Mode())).MarshalBinaryTo(messageScratch); err != nil {
+		return errors.Wrap(err, "cannot encode mode")
 	}
 
 	return composer.Compose(v1Symlink, messageScratch.Bytes())
@@ -657,15 +674,23 @@ func decodeSocket(r io.Reader) error {
 
 func decodeSymlink(r io.Reader) error {
 	var err error
-	var targetBase, linkname gobsp.String
+	var targetBase gobsp.String // base name of symbolic link we are making
+	var linkname gobsp.String   // symbolic link will point to this file system entry
+	var mtime gobsp.Int64
+	var mode gobsp.Uint32
 
 	if err = targetBase.UnmarshalBinaryFrom(r); err != nil {
 		return errors.Wrap(err, "cannot decode name")
 	}
 	debug("%s symlink\n", targetBase)
-
 	if err = linkname.UnmarshalBinaryFrom(r); err != nil {
 		return errors.Wrap(err, "cannot decode referent")
+	}
+	if err = mtime.UnmarshalBinaryFrom(r); err != nil {
+		return errors.Wrap(err, "cannot decode modification time")
+	}
+	if err = mode.UnmarshalBinaryFrom(r); err != nil {
+		return errors.Wrap(err, "cannot decode mode")
 	}
 
 	// When exists, but wrong type...
@@ -684,22 +709,33 @@ func decodeSymlink(r io.Reader) error {
 		return errors.WithStack(err)
 	}
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return errors.WithStack(err)
-	}
+	// t := time.Unix(int64(mtime), 0)
+	// if err = os.Chtimes(string(targetBase), t, t); err != nil {
+	// 	return errors.WithStack(err)
+	// }
 
-	fh, err := os.Open(wd)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer fh.Close()
+	// if err = os.Chmod(string(targetBase), os.FileMode(mode).Perm()); err != nil {
+	// 	return errors.WithStack(err)
+	// }
 
-	dirfd := int(fh.Fd())
+	return nil
 
-	targetFull := filepath.Join(wd, string(targetBase))
-	mode := uint32(fi.Mode())
-	flags := unix.AT_SYMLINK_NOFOLLOW
+	// wd, err := os.Getwd()
+	// if err != nil {
+	// 	return errors.WithStack(err)
+	// }
 
-	return errors.WithStack(chmod(dirfd, targetFull, mode, flags))
+	// fh, err := os.Open(wd)
+	// if err != nil {
+	// 	return errors.WithStack(err)
+	// }
+	// defer fh.Close()
+
+	// dirfd := int(fh.Fd())
+
+	// targetFull := filepath.Join(wd, string(targetBase))
+	// mode := uint32(fi.Mode()) // ??? why trying to get mode of possibly non existing entry
+	// flags := unix.AT_SYMLINK_NOFOLLOW
+
+	// return errors.WithStack(chmod(dirfd, targetFull, mode, flags))
 }
