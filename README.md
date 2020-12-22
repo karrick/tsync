@@ -40,17 +40,29 @@ unix domain sockets when tsync does not yet.
 
 ## Usage
 
+### Simple Creation and Extraction of Archive Files
+
+Create archive file consisting of one or more file system entries.
+
+    $ tsync create --file ~/path/stuff.saf ~/foo ~/bar
+
+Extract contents of archive file into 
+
+    $ tsync extract --chdir ~/dest --file ~/path/stuff.saf
+
+### Replication to another host
+
 Always start `tsync` on the destination machine first. The receive
 subcommand expects an optional IP address and a mandatory port number
 to bind to. The port number must always be proceeded by the colon
 character. The optional IP address would be used when `tsync` ought to
 bind only to a particular interface, if desired.
 
-    [you@destination.example.com ~]$ tsync receive :6969
+    [you@destination.example.com ~]$ tcp-pipe receive :6969 | tsync extract --chdir ~/dest
 
 After the recipient is waiting, send the files from the source.
 
-    [you@source.example.com ~]$ tsync send destination.example.com:6969 dir1 dir2 ...
+    [you@source.example.com ~]$ tsync create ~/dir1 ~/dir2 ... | tcp-pipe send destination.example.com:6969
 
 After `tsync` finishes, `~/dir1` and `~/dir2` from
 `source.example.com` will be replicated to `~/dir1` and `~/dir2` on
@@ -67,7 +79,7 @@ verbose flag on the source and destination are independent of each
 other. In other words you may have verbose on neither of the source or
 the destination, either of them, or both of them.
 
-    [you@destination.example.com ~]$ tsync -v receive :6969
+    [you@destination.example.com ~]$ tsync -v create --file foo.af ~/foo
 
 ## Limitations
 

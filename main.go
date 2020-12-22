@@ -76,7 +76,10 @@ func main() {
 }
 
 func usage(message string) {
-	fmt.Fprintf(os.Stderr, "%s\nusage: %s [--input [- | path] | --output [- | path] arg1 arg2...]\n", message, filepath.Base(os.Args[0]))
+	exec := filepath.Base(os.Args[0])
+	fmt.Fprintf(os.Stderr, "%s\n", message)
+	fmt.Fprintf(os.Stderr, "usage: %s [--debug | --verbose] [--file -] create arg1 arg2...\n", exec)
+	fmt.Fprintf(os.Stderr, "usage: %s [--chdir PATH] [--debug | --verbose] [--file -] [--chdir PATH] extract\n", exec)
 	os.Exit(2)
 }
 
