@@ -1,4 +1,4 @@
-package main // import "github.com/karrick/tsync"
+package main
 
 import (
 	"bytes"
